@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<title>PayPal → VES Router</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%232563eb'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3E$%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#0b1220; --muted:#5b6472; --line:#e6e9ef;
+    --brand:#2563eb; --brand-ink:#ffffff; --good:#0f9d58; --goodbg:#e7f6ec;
+    --warn:#b26a00; --warnbg:#fdf2df; --chip:#eef2ff; --field:#ffffff;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0b0f1a; --card:#131a2a; --ink:#eef2f8; --muted:#9aa6b8; --line:#243049;
+      --brand:#3b82f6; --brand-ink:#ffffff; --good:#3ddc84; --goodbg:#0f2a1c;
+      --warn:#f0b357; --warnbg:#2a2113; --chip:#1b2540; --field:#0f1524;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+    padding:16px; padding-bottom:48px; max-width:640px; margin:0 auto;
+  }
+  h1{font-size:20px; margin:4px 0 2px; letter-spacing:-.01em}
+  .sub{color:var(--muted); font-size:13px; margin:0 0 14px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; box-shadow:var(--shadow)}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  label{display:block; font-size:12px; color:var(--muted); margin:0 0 4px; font-weight:600; letter-spacing:.02em}
+  input[type=number]{
+    width:100%; font-size:17px; padding:12px 12px; border-radius:12px;
+    border:1px solid var(--line); background:var(--field); color:var(--ink); outline:none;
+  }
+  input:focus{border-color:var(--brand)}
+  .field{flex:1 1 120px; min-width:0}
+  .amount input{font-size:26px; font-weight:700; padding:14px}
+  button{font-family:inherit; cursor:pointer; border:none}
+  .btn{
+    width:100%; background:var(--brand); color:var(--brand-ink); font-size:16px; font-weight:700;
+    padding:14px; border-radius:14px; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.secondary{background:var(--chip); color:var(--ink); border:1px solid var(--line)}
+  .btn.mini{width:auto; padding:9px 12px; font-size:13px; border-radius:10px}
+  .status{font-size:12px; color:var(--muted); margin-top:8px; text-align:center; min-height:16px}
+  .status.err{color:var(--warn)}
+  .rates{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .rateBox label{margin-bottom:6px}
+  .hint{font-size:11px; color:var(--muted); margin-top:4px}
+  .results{display:flex; flex-direction:column; gap:12px}
+  .route{border:1px solid var(--line); border-radius:16px; padding:14px; background:var(--card); position:relative; overflow:hidden}
+  .route.win{border-color:var(--good); background:linear-gradient(0deg,var(--goodbg),transparent 70%)}
+  .route .name{font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px}
+  .badge{font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; background:var(--chip); color:var(--muted); letter-spacing:.04em; text-transform:uppercase}
+  .badge.best{background:var(--good); color:#04150c}
+  .ves{font-size:28px; font-weight:800; margin:8px 0 2px; letter-spacing:-.02em}
+  .eff{font-size:13px; color:var(--muted)}
+  .delta{font-size:12px; font-weight:700}
+  .delta.neg{color:var(--warn)}
+  .steps{margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; display:none}
+  .steps.open{display:block}
+  .steps .line{display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); padding:2px 0}
+  .steps .line b{color:var(--ink); font-weight:600}
+  .toggle{background:none; color:var(--brand); font-size:12px; font-weight:700; padding:6px 0 0}
+  details{border:1px solid var(--line); border-radius:14px; background:var(--card); margin-bottom:14px; box-shadow:var(--shadow)}
+  details>summary{cursor:pointer; padding:14px 16px; font-weight:700; font-size:14px; list-style:none; display:flex; justify-content:space-between; align-items:center}
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::after{content:"▾"; color:var(--muted); transition:transform .2s}
+  details[open]>summary::after{transform:rotate(180deg)}
+  .grp{padding:0 16px 16px}
+  .grp h3{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:14px 0 8px}
+  .foot{font-size:11px; color:var(--muted); text-align:center; margin-top:6px}
+  .inline{display:flex; align-items:center; gap:8px}
+  .flag{color:var(--warn); font-weight:700}
+  a{color:var(--brand)}
+  .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .reco{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid var(--good);background:var(--goodbg);border-radius:14px}
+  .reco .pct{font-size:30px;font-weight:800;color:var(--good);letter-spacing:-.02em;line-height:1}
+  .reco .lbl{font-size:12.5px;color:var(--ink)}
+  .plist{margin-top:10px}
+  .prow{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;padding:8px 0;border-top:1px dashed var(--line)}
+  .prow .rt{color:var(--ink)}
+  .prow .sub{color:var(--muted);font-size:11px}
+  .prow .mk{font-weight:800}
+  .cur{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<h1>PayPal → VES Router</h1>
+<p class="sub">Compare the three cash-out routes and see the final bolívares for each.</p>
+
+<div class="card amount">
+  <label for="amount">Amount in PayPal (USD)</label>
+  <input id="amount" type="number" inputmode="decimal" value="100" min="0" step="1">
+</div>
+
+<div class="card">
+  <button class="btn" id="update"><span class="spin" id="spin"></span><span id="updLabel">↻ Update live rates</span></button>
+  <div class="status" id="status">Tap update to pull the latest rates.</div>
+  <div class="rates" style="margin-top:12px">
+    <div class="rateBox">
+      <label for="p2p">Binance P2P · USDT→VES</label>
+      <input id="p2p" type="number" inputmode="decimal" step="0.01" placeholder="e.g. 951">
+      <div class="hint" id="p2pHint">VES you get per USDT sold</div>
+    </div>
+    <div class="rateBox">
+      <label for="saldo">Saldoar · PayPal→Pago Móvil</label>
+      <input id="saldo" type="number" inputmode="decimal" step="0.01" placeholder="e.g. 860">
+      <div class="hint" id="saldoHint">VES per PayPal USD (posted)</div>
+    </div>
+  </div>
+</div>
+
+<div class="results" id="results"></div>
+
+<div class="card" style="margin-top:14px">
+  <label>Saldoar PayPal buy-offers available</label>
+  <div class="inline">
+    <input id="offers" type="number" inputmode="numeric" step="1" placeholder="how many offers?" style="flex:1">
+    <button class="btn secondary mini" id="openDeals">Open deals ↗</button>
+  </div>
+  <div class="hint">More offers = your VES arrives faster. This one needs your Saldoar login, so type what you see.</div>
+</div>
+
+<div class="card" id="pricingCard">
+  <label style="margin:0">What to charge clients</label>
+  <div class="hint" style="margin:2px 0 8px">Break-even markup so your VES equals the product's value after PayPal + the cash-out route.</div>
+  <div class="row">
+    <div class="field"><label>Typical conversion batch (USD)</label><input id="batch" type="number" inputmode="decimal" step="50" value="1000"></div>
+    <div class="field"><label>PayPal fee %</label><input id="pp_fee" type="number" step="0.01" value="5.4"></div>
+  </div>
+  <div id="pricingOut"></div>
+</div>
+
+<details id="settings">
+  <summary>Fees &amp; assumptions <span class="badge">tap to calibrate</span></summary>
+  <div class="grp">
+    <p class="hint" style="margin:0 0 4px">Values marked <span class="flag">⚑</span> are estimates — set them to your real numbers once.</p>
+
+    <h3>Route 1 · Saldoar direct</h3>
+    <div class="row">
+      <div class="field"><label>Extra commission %</label><input id="s_fee" type="number" step="0.01" value="0.36"></div>
+    </div>
+    <div class="hint">Posted rate minus this. At the posted 860.78 a $100 test gave 85,767 VES ≈ 0.36%. If your account level gets a better rate, just edit the Saldoar rate above.</div>
+
+    <h3>Route 2 · UglyCash → Binance</h3>
+    <div class="row">
+      <div class="field"><label>PayPal→UglyCash (USD)</label><input id="u_in" type="number" step="0.01" value="2"></div>
+      <div class="field"><label>UglyCash→Binance (USD)</label><input id="u_out" type="number" step="0.01" value="2"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>UglyCash % fee</label><input id="u_pct" type="number" step="0.01" value="0"></div>
+      <div class="field"><label>Network fee (USDT)</label><input id="u_net" type="number" step="0.01" value="0"></div>
+    </div>
+
+    <h3>Route 3 · FaceBank → Zinli</h3>
+    <div class="row">
+      <div class="field"><label>FaceBank card fee %</label><input id="f_pct" type="number" step="0.01" value="0"></div>
+      <div class="field"><label>FaceBank card fee flat (USD)</label><input id="f_flat" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="hint">FaceBank doesn't charge a % on USD online purchases (internet transactions are free), so this stays 0. Its real costs are one-time card issuance / maintenance, not per-transaction.</div>
+    <div class="row">
+      <div class="field"><label>Zinli recharge fee % (card)</label><input id="z_pct" type="number" step="0.01" value="1.5"></div>
+      <div class="field"><label>Zinli recharge flat (USD)</label><input id="z_flat" type="number" step="0.01" value="0"></div>
+    </div>
+    <div class="hint">Zinli charges ~1–1.5% to recharge with an international card. Default 1.5%.</div>
+    <div class="row">
+      <div class="field"><label>USDT price paying Zinli (USD/USDT) <span class="flag">⚑</span></label><input id="z_usdt" type="number" step="0.001" value="1.03"></div>
+    </div>
+    <div class="hint">On P2P you first spend Zinli to buy USDT (usually a small premium, so &gt;1.00), then sell that USDT for VES.</div>
+
+    <h3>Shared</h3>
+    <div class="row">
+      <div class="field"><label>P2P realized spread % (routes 2 &amp; 3)</label><input id="p_taker" type="number" step="0.01" value="0.38"></div>
+    </div>
+    <div class="hint">Gap between the quoted P2P rate and the real top sell offers. Measured today: top-5 offers avg ≈ 947.3 vs quoted 951 → 0.38% (best single offer → 0.36%). Applied to the USDT→VES sell, and used to convert the VES gap back to USD.</div>
+    <div style="margin-top:12px"><button class="btn secondary mini" id="reset">Reset to defaults</button></div>
+  </div>
+</details>
+
+<p class="foot" id="foot">Rates: usdt.com.ve (Binance P2P) · saldo.com.ar (Saldoar). Estimates only — confirm before sending money.</p>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var LS = "pvr_v1";
+  var num = function(v){ v = parseFloat(v); return isFinite(v) ? v : 0; };
+
+  // fields whose values we persist
+  var SETTING_IDS = ["s_fee","u_in","u_out","u_pct","u_net","f_pct","f_flat","z_pct","z_flat","z_usdt","p_taker"];
+  var DEFAULTS = {};
+  SETTING_IDS.forEach(function(id){ DEFAULTS[id] = $(id).value; });
+
+  function save(){
+    try{
+      var o = {amount:$("amount").value, p2p:$("p2p").value, saldo:$("saldo").value, offers:$("offers").value, batch:$("batch").value, pp_fee:$("pp_fee").value};
+      SETTING_IDS.forEach(function(id){ o[id] = $(id).value; });
+      localStorage.setItem(LS, JSON.stringify(o));
+    }catch(e){}
+  }
+  function load(){
+    try{
+      var o = JSON.parse(localStorage.getItem(LS) || "{}");
+      ["amount","p2p","saldo","offers","batch","pp_fee"].concat(SETTING_IDS).forEach(function(id){
+        if(o[id] !== undefined && o[id] !== "") $(id).value = o[id];
+      });
+    }catch(e){}
+  }
+
+  function fmtVES(n){
+    if(!isFinite(n)) return "—";
+    return Math.round(n).toLocaleString("es-VE") + " VES";
+  }
+  function fmtRate(n){ return isFinite(n) ? n.toLocaleString("en-US",{maximumFractionDigits:2}) : "—"; }
+
+  // ---- route math ----
+  function routesFor(A){
+    var p2p = num($("p2p").value);
+    var saldo = num($("saldo").value);
+    var taker = num($("p_taker").value)/100;
+
+    // Route 1: Saldoar direct
+    var sFee = num($("s_fee").value)/100;
+    var v1 = A * saldo * (1 - sFee);
+    var r1 = { ves:v1, steps:[
+      ["PayPal amount", "$"+A.toFixed(2)],
+      ["× Saldoar rate", fmtRate(saldo)+" VES/$"],
+      ["− commission "+($("s_fee").value)+"%", "−"+fmtVES(A*saldo*sFee)],
+      ["VES received", fmtVES(v1)]
+    ]};
+
+    // Route 2: UglyCash -> Binance -> sell USDT
+    var uIn=num($("u_in").value), uOut=num($("u_out").value), uPct=num($("u_pct").value)/100, uNet=num($("u_net").value);
+    var usdAtBinance = (A - uIn - uOut) * (1 - uPct);
+    var usdt2 = Math.max(0, usdAtBinance - uNet);
+    var v2 = usdt2 * p2p * (1 - taker);
+    var r2 = { ves:v2, steps:[
+      ["PayPal amount", "$"+A.toFixed(2)],
+      ["− UglyCash fees", "−$"+(uIn+uOut).toFixed(2)],
+      (uPct? ["− UglyCash "+$("u_pct").value+"%", "−$"+((A-uIn-uOut)*uPct).toFixed(2)] : null),
+      ["USDT at Binance", usdt2.toFixed(2)+" USDT"],
+      ["× P2P rate", fmtRate(p2p)+" VES"],
+      taker? ["− P2P spread "+$("p_taker").value+"%", "−"+fmtVES(usdt2*p2p*taker)] : null,
+      ["VES received", fmtVES(v2)]
+    ].filter(Boolean)};
+
+    // Route 3: FaceBank -> Zinli -> buy USDT -> sell USDT
+    var fPct=num($("f_pct").value)/100, fFlat=num($("f_flat").value), zPct=num($("z_pct").value)/100, zFlat=num($("z_flat").value), zUsdt=num($("z_usdt").value)||1;
+    var afterFb = A * (1 - fPct) - fFlat;
+    var zinliUsd = afterFb * (1 - zPct) - zFlat;
+    var usdt3 = Math.max(0, zinliUsd / zUsdt);
+    var v3 = usdt3 * p2p * (1 - taker);
+    var r3 = { ves:v3, steps:[
+      ["PayPal amount", "$"+A.toFixed(2)],
+      ["→ FaceBank", "$"+afterFb.toFixed(2)],
+      ["→ Zinli (−"+$("z_pct").value+"%)", "$"+zinliUsd.toFixed(2)],
+      ["buy USDT @ "+fmtRate(zUsdt), usdt3.toFixed(2)+" USDT"],
+      ["× P2P rate", fmtRate(p2p)+" VES"],
+      taker? ["− P2P spread "+$("p_taker").value+"%", "−"+fmtVES(usdt3*p2p*taker)] : null,
+      ["VES received", fmtVES(v3)]
+    ].filter(Boolean)};
+
+    return [
+      {key:"r1", title:"Saldoar direct", tag:"1 step · PayPal→Pago Móvil", data:r1, A:A},
+      {key:"r2", title:"UglyCash → Binance", tag:"PayPal→UglyCash→Binance P2P", data:r2, A:A},
+      {key:"r3", title:"FaceBank → Zinli", tag:"PayPal→FaceBank→Zinli→P2P", data:r3, A:A}
+    ];
+  }
+
+  var openState = {};
+  function render(){
+    var routes = routesFor(num($("amount").value));
+    var best = -Infinity;
+    routes.forEach(function(r){ if(isFinite(r.data.ves) && r.data.ves>best) best=r.data.ves; });
+
+    var html = routes.map(function(r){
+      var ves = r.data.ves;
+      var eff = r.A>0 ? ves/r.A : 0;
+      var isWin = isFinite(ves) && ves===best && best>0;
+      var deltaHtml = "";
+      if(!isWin && best>0 && isFinite(ves)){
+        var diff = best - ves;                       // positive VES you give up
+        var pct = (diff/best*100);
+        var p2pv = num($("p2p").value);
+        var slip = num($("p_taker").value)/100;
+        var binEff = p2pv*(1-slip);                  // Binance realized rate
+        var usdDiff = binEff>0 ? diff/binEff : 0;    // VES gap converted to USD
+        deltaHtml = '<div class="delta neg">−'+fmtVES(diff)+'  ·  −$'+usdDiff.toFixed(2)+' vs best  ('+pct.toFixed(1)+'%)</div>';
+      }
+      var stepsHtml = r.data.steps.map(function(s){
+        return '<div class="line"><span>'+s[0]+'</span><b>'+s[1]+'</b></div>';
+      }).join("");
+      var isOpen = !!openState[r.key];
+      return ''+
+      '<div class="route '+(isWin?"win":"")+'">'+
+        '<div class="name">'+r.title+' '+(isWin?'<span class="badge best">Best</span>':'<span class="badge">'+r.tag.split("·")[0].trim()+'</span>')+'</div>'+
+        '<div class="ves">'+fmtVES(ves)+'</div>'+
+        '<div class="eff">'+ (eff? fmtRate(eff)+' VES per $1' : '—') +'</div>'+
+        deltaHtml+
+        '<button class="toggle" data-k="'+r.key+'">'+(isOpen?'Hide steps ▴':'Show steps ▾')+'</button>'+
+        '<div class="steps '+(isOpen?'open':'')+'" id="steps_'+r.key+'">'+stepsHtml+'</div>'+
+      '</div>';
+    }).join("");
+    $("results").innerHTML = html;
+
+    Array.prototype.forEach.call(document.querySelectorAll(".toggle"), function(b){
+      b.addEventListener("click", function(){
+        var k=b.getAttribute("data-k"); openState[k]=!openState[k]; render();
+      });
+    });
+    renderPricing();
+    save();
+  }
+
+  function renderPricing(){
+    var B = num($("batch").value);
+    var f = num($("pp_fee").value)/100;
+    var p2pv = num($("p2p").value), slip = num($("p_taker").value)/100;
+    var marketRate = p2pv*(1-slip);                 // realized VES/USDT — the true FX yardstick
+    var rs = routesFor(B);
+    var items = rs.map(function(r){
+      // value kept (in USD) per $1 that reaches PayPal, at this batch size
+      var eff = (marketRate>0 && B>0 && isFinite(r.data.ves)) ? r.data.ves/(marketRate*B) : 0;
+      var markup = eff>0 ? (1/((1-f)*eff)-1) : Infinity;   // charge this over product value to break even
+      return {title:r.title, key:r.key, markup:markup};
+    });
+    var best = items.slice().sort(function(a,b){return a.markup-b.markup;})[0];
+    var pct = function(m){ return isFinite(m) ? (m>=0?"+":"")+(m*100).toFixed(1)+"%" : "—"; };
+    var rows = items.map(function(it){
+      var isB = best && it.key===best.key;
+      return '<div class="prow"><span class="rt">'+it.title+(isB?' <span class="sub">· cheapest</span>':'')+'</span><span class="mk">'+pct(it.markup)+'</span></div>';
+    }).join("");
+    var head = best ? pct(best.markup) : "—";
+    $("pricingOut").innerHTML =
+      '<div class="reco"><span class="pct">'+head+'</span>'+
+        '<span class="lbl">markup to break even cashing out via <b>'+(best?best.title:"—")+'</b> in $'+Math.round(B).toLocaleString("en-US")+' batches</span></div>'+
+      '<div class="plist">'+rows+'</div>'+
+      '<div class="cur">You build in 5.40% today. Larger batches lower the needed markup (the flat fees spread thinner); Saldoar-direct needs the most because its rate sits below the P2P market. The P2P spread isn\'t counted here — it\'s just the going rate, not a recoverable cost.</div>';
+  }
+
+  // ---- live fetch ----
+  var USDT_API = "https://www.usdt.com.ve/api/v1/rates/current";
+  var SALDO_API = "https://api.saldo.com.ar/json/rates/pago_movil/palpal";
+
+  function setStatus(msg, err){ var s=$("status"); s.textContent=msg; s.className="status"+(err?" err":""); }
+
+  function update(){
+    var spin=$("spin"), lbl=$("updLabel");
+    spin.style.display="inline-block"; lbl.textContent="Updating…";
+    setStatus("Fetching live rates…");
+    var when = new Date();
+
+    var pA = fetch(USDT_API,{method:"GET",credentials:"omit",cache:"no-store"})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        var b = j && j.data && j.data.binance;
+        if(!b) throw new Error("shape");
+        $("p2p").value = b.buy_rate;
+        var bcv = j.data.bcv ? j.data.bcv.rate : null;
+        $("p2pHint").textContent = "buy "+fmtRate(b.buy_rate)+" / sell "+fmtRate(b.sell_rate)+ (bcv? " · BCV "+fmtRate(bcv):"");
+        return true;
+      });
+
+    var pB = fetch(SALDO_API,{method:"GET",cache:"no-store"})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        var p = j && j.palpal;
+        if(!p || typeof p.ask!=="number") throw new Error("shape");
+        $("saldo").value = p.ask.toFixed(2);
+        $("saldoHint").textContent = "posted ask "+fmtRate(p.ask)+" VES/$ (spread side "+fmtRate(p.bid)+")";
+        return true;
+      });
+
+    Promise.allSettled([pA,pB]).then(function(res){
+      spin.style.display="none"; lbl.textContent="↻ Update live rates";
+      var okA=res[0].status==="fulfilled", okB=res[1].status==="fulfilled";
+      render();
+      if(okA&&okB){
+        setStatus("Updated "+when.toLocaleTimeString()+" ✓");
+      }else if(!okA&&!okB){
+        setStatus("Couldn't reach either rate source. Check connection, or type rates manually. (If opened as a local file, some phones block this — see notes.)", true);
+      }else{
+        setStatus("Got "+(okA?"Binance":"Saldoar")+" only; the other failed — type it manually.", true);
+      }
+    });
+  }
+
+  // ---- wire up ----
+  ["amount","p2p","saldo","offers","batch","pp_fee"].concat(SETTING_IDS).forEach(function(id){
+    $(id).addEventListener("input", render);
+  });
+  $("update").addEventListener("click", update);
+  $("openDeals").addEventListener("click", function(){
+    window.open("https://saldoar.com/my/dashboard/deals","_blank");
+  });
+  $("reset").addEventListener("click", function(){
+    SETTING_IDS.forEach(function(id){ $(id).value = DEFAULTS[id]; });
+    render();
+  });
+
+  load();
+  render();
+})();
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body>
+</html>
