@@ -59,8 +59,12 @@
   .results{display:flex; flex-direction:column; gap:12px}
   .route{border:1px solid var(--line); border-radius:16px; padding:14px; background:var(--card); position:relative; overflow:hidden}
   .route.win{border-color:var(--good); background:linear-gradient(0deg,var(--goodbg),transparent 70%)}
-  .route .name{font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px}
-  .badge{font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; background:var(--chip); color:var(--muted); letter-spacing:.04em; text-transform:uppercase}
+  .route.off{opacity:.55}
+  .route.off .ves{color:var(--muted)}
+  .name-wrap{display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .route .name{font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px; min-width:0}
+  .route .name .t{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .badge{font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; background:var(--chip); color:var(--muted); letter-spacing:.04em; text-transform:uppercase; flex:0 0 auto}
   .badge.best{background:var(--good); color:#04150c}
   .ves{font-size:28px; font-weight:800; margin:8px 0 2px; letter-spacing:-.02em}
   .eff{font-size:13px; color:var(--muted)}
@@ -71,6 +75,12 @@
   .steps .line{display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); padding:2px 0}
   .steps .line b{color:var(--ink); font-weight:600}
   .toggle{background:none; color:var(--brand); font-size:12px; font-weight:700; padding:6px 0 0}
+  .sw{position:relative; display:inline-block; width:42px; height:24px; flex:0 0 auto}
+  .sw input{opacity:0; width:0; height:0; position:absolute}
+  .sw .tr{position:absolute; inset:0; background:var(--line); border-radius:999px; transition:.15s}
+  .sw .tr:before{content:""; position:absolute; height:18px; width:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s; box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .sw input:checked + .tr{background:var(--good)}
+  .sw input:checked + .tr:before{transform:translateX(18px)}
   details{border:1px solid var(--line); border-radius:14px; background:var(--card); margin-bottom:14px; box-shadow:var(--shadow)}
   details>summary{cursor:pointer; padding:14px 16px; font-weight:700; font-size:14px; list-style:none; display:flex; justify-content:space-between; align-items:center}
   details>summary::-webkit-details-marker{display:none}
@@ -98,7 +108,7 @@
 <body>
 
 <h1>PayPal → VES Router</h1>
-<p class="sub">Compare the three cash-out routes and see the final bolívares for each.</p>
+<p class="sub">Compare the cash-out routes and see the final bolívares for each. Flip a route off when it isn't available right now.</p>
 
 <div class="card amount">
   <label for="amount">Amount in PayPal (USD)</label>
@@ -135,7 +145,7 @@
 
 <div class="card" id="pricingCard">
   <label style="margin:0">What to charge clients</label>
-  <div class="hint" style="margin:2px 0 8px">Break-even markup so your VES equals the product's value after PayPal + the cash-out route.</div>
+  <div class="hint" style="margin:2px 0 8px">Break-even markup so your VES equals the product's value after PayPal + the cash-out route. Only active routes are counted.</div>
   <div class="row">
     <div class="field"><label>Typical conversion batch (USD)</label><input id="batch" type="number" inputmode="decimal" step="50" value="1000"></div>
     <div class="field"><label>PayPal fee %</label><input id="pp_fee" type="number" step="0.01" value="5.4"></div>
@@ -164,27 +174,49 @@
       <div class="field"><label>Network fee (USDT)</label><input id="u_net" type="number" step="0.01" value="0"></div>
     </div>
 
-    <h3>Route 3 · FaceBank → Zinli</h3>
+    <h3>FaceBank card (routes 3, 4 &amp; 5)</h3>
     <div class="row">
       <div class="field"><label>FaceBank card fee %</label><input id="f_pct" type="number" step="0.01" value="0"></div>
       <div class="field"><label>FaceBank card fee flat (USD)</label><input id="f_flat" type="number" step="0.01" value="0"></div>
     </div>
     <div class="hint">FaceBank doesn't charge a % on USD online purchases (internet transactions are free), so this stays 0. Its real costs are one-time card issuance / maintenance, not per-transaction.</div>
+
+    <h3>Route 3 · FaceBank → Zinli</h3>
     <div class="row">
       <div class="field"><label>Zinli recharge fee % (card)</label><input id="z_pct" type="number" step="0.01" value="1.5"></div>
       <div class="field"><label>Zinli recharge flat (USD)</label><input id="z_flat" type="number" step="0.01" value="0"></div>
     </div>
-    <div class="hint">Zinli charges ~1–1.5% to recharge with an international card. Default 1.5%.</div>
     <div class="row">
       <div class="field"><label>USDT price paying Zinli (USD/USDT) <span class="flag">⚑</span></label><input id="z_usdt" type="number" step="0.001" value="1.03"></div>
     </div>
     <div class="hint">On P2P you first spend Zinli to buy USDT (usually a small premium, so &gt;1.00), then sell that USDT for VES.</div>
 
+    <h3>Route 4 · FaceBank → Wally</h3>
+    <div class="row">
+      <div class="field"><label>Wally recharge fee %</label><input id="w_pct" type="number" step="0.01" value="3.75"></div>
+      <div class="field"><label>Tax on the fee %</label><input id="w_tax" type="number" step="0.01" value="7"></div>
+    </div>
+    <div class="hint">Wally charges 3.75% to recharge, plus 7% tax on that fee → effective ≈ 4.01%. Uses the FaceBank card fee above.</div>
+    <div class="row">
+      <div class="field"><label>USDT price paying Wally (USD/USDT) <span class="flag">⚑</span></label><input id="w_usdt" type="number" step="0.001" value="1.03"></div>
+    </div>
+
+    <h3>Route 5 · FaceBank → USDT (direct P2P)</h3>
+    <div class="row">
+      <div class="field"><label>USDT price paying FaceBank (USD/USDT)</label><input id="fb_usdt" type="number" step="0.001" value="1.09"></div>
+    </div>
+    <div class="hint" id="fbHint">FaceBank-accepting sellers price USDT at a steep, amount-dependent premium (~1.066 at $1,000 up to ~1.09 at $100). Set the proxy below to pull the live rate for your amount automatically.</div>
+    <div class="row">
+      <div class="field"><label>Binance P2P proxy URL (your Cloudflare Worker)</label><input id="fb_worker" type="text" inputmode="url" placeholder="https://xxx.workers.dev"></div>
+      <div class="field"><label>Pay method</label><input id="fb_pay" type="text" value="FaceBank"></div>
+    </div>
+    <div class="hint">With the proxy set, the FaceBank price auto-updates for the amount you enter (it changes a lot by size). Without it, the manual value above is used.</div>
+
     <h3>Shared</h3>
     <div class="row">
-      <div class="field"><label>P2P realized spread % (routes 2 &amp; 3)</label><input id="p_taker" type="number" step="0.01" value="0.38"></div>
+      <div class="field"><label>P2P realized spread % (crypto routes)</label><input id="p_taker" type="number" step="0.01" value="0.38"></div>
     </div>
-    <div class="hint">Gap between the quoted P2P rate and the real top sell offers. Measured today: top-5 offers avg ≈ 947.3 vs quoted 951 → 0.38% (best single offer → 0.36%). Applied to the USDT→VES sell, and used to convert the VES gap back to USD.</div>
+    <div class="hint">Gap between the quoted P2P rate and the real top sell offers. Applied to every USDT→VES sell (routes 2–5), and used to convert the VES gap back to USD.</div>
     <div style="margin-top:12px"><button class="btn secondary mini" id="reset">Reset to defaults</button></div>
   </div>
 </details>
@@ -198,14 +230,18 @@
   var LS = "pvr_v1";
   var num = function(v){ v = parseFloat(v); return isFinite(v) ? v : 0; };
 
-  // fields whose values we persist
-  var SETTING_IDS = ["s_fee","u_in","u_out","u_pct","u_net","f_pct","f_flat","z_pct","z_flat","z_usdt","p_taker"];
+  var SETTING_IDS = ["s_fee","u_in","u_out","u_pct","u_net","f_pct","f_flat","z_pct","z_flat","z_usdt","w_pct","w_tax","w_usdt","fb_usdt","p_taker"];
   var DEFAULTS = {};
   SETTING_IDS.forEach(function(id){ DEFAULTS[id] = $(id).value; });
 
+  // which routes are active (available) right now
+  var active = {r1:true, r2:true, r3:true, r4:true, r5:true};
+  var openState = {};
+
   function save(){
     try{
-      var o = {amount:$("amount").value, p2p:$("p2p").value, saldo:$("saldo").value, offers:$("offers").value, batch:$("batch").value, pp_fee:$("pp_fee").value};
+      var o = {amount:$("amount").value, p2p:$("p2p").value, saldo:$("saldo").value, offers:$("offers").value,
+               batch:$("batch").value, pp_fee:$("pp_fee").value, fb_worker:$("fb_worker").value, fb_pay:$("fb_pay").value, active:active};
       SETTING_IDS.forEach(function(id){ o[id] = $(id).value; });
       localStorage.setItem(LS, JSON.stringify(o));
     }catch(e){}
@@ -213,16 +249,14 @@
   function load(){
     try{
       var o = JSON.parse(localStorage.getItem(LS) || "{}");
-      ["amount","p2p","saldo","offers","batch","pp_fee"].concat(SETTING_IDS).forEach(function(id){
+      ["amount","p2p","saldo","offers","batch","pp_fee","fb_worker","fb_pay"].concat(SETTING_IDS).forEach(function(id){
         if(o[id] !== undefined && o[id] !== "") $(id).value = o[id];
       });
+      if(o.active){ Object.keys(active).forEach(function(k){ if(typeof o.active[k]==="boolean") active[k]=o.active[k]; }); }
     }catch(e){}
   }
 
-  function fmtVES(n){
-    if(!isFinite(n)) return "—";
-    return Math.round(n).toLocaleString("es-VE") + " VES";
-  }
+  function fmtVES(n){ return isFinite(n) ? Math.round(n).toLocaleString("es-VE")+" VES" : "—"; }
   function fmtRate(n){ return isFinite(n) ? n.toLocaleString("en-US",{maximumFractionDigits:2}) : "—"; }
 
   // ---- route math ----
@@ -230,6 +264,11 @@
     var p2p = num($("p2p").value);
     var saldo = num($("saldo").value);
     var taker = num($("p_taker").value)/100;
+    var spreadLine = function(usdt){ return taker ? ["− P2P spread "+$("p_taker").value+"%", "−"+fmtVES(usdt*p2p*taker)] : null; };
+
+    // shared FaceBank card step (routes 3, 4, 5)
+    var fPct=num($("f_pct").value)/100, fFlat=num($("f_flat").value);
+    var afterFb = A*(1-fPct) - fFlat;
 
     // Route 1: Saldoar direct
     var sFee = num($("s_fee").value)/100;
@@ -252,13 +291,12 @@
       (uPct? ["− UglyCash "+$("u_pct").value+"%", "−$"+((A-uIn-uOut)*uPct).toFixed(2)] : null),
       ["USDT at Binance", usdt2.toFixed(2)+" USDT"],
       ["× P2P rate", fmtRate(p2p)+" VES"],
-      taker? ["− P2P spread "+$("p_taker").value+"%", "−"+fmtVES(usdt2*p2p*taker)] : null,
+      spreadLine(usdt2),
       ["VES received", fmtVES(v2)]
     ].filter(Boolean)};
 
     // Route 3: FaceBank -> Zinli -> buy USDT -> sell USDT
-    var fPct=num($("f_pct").value)/100, fFlat=num($("f_flat").value), zPct=num($("z_pct").value)/100, zFlat=num($("z_flat").value), zUsdt=num($("z_usdt").value)||1;
-    var afterFb = A * (1 - fPct) - fFlat;
+    var zPct=num($("z_pct").value)/100, zFlat=num($("z_flat").value), zUsdt=num($("z_usdt").value)||1;
     var zinliUsd = afterFb * (1 - zPct) - zFlat;
     var usdt3 = Math.max(0, zinliUsd / zUsdt);
     var v3 = usdt3 * p2p * (1 - taker);
@@ -268,35 +306,67 @@
       ["→ Zinli (−"+$("z_pct").value+"%)", "$"+zinliUsd.toFixed(2)],
       ["buy USDT @ "+fmtRate(zUsdt), usdt3.toFixed(2)+" USDT"],
       ["× P2P rate", fmtRate(p2p)+" VES"],
-      taker? ["− P2P spread "+$("p_taker").value+"%", "−"+fmtVES(usdt3*p2p*taker)] : null,
+      spreadLine(usdt3),
       ["VES received", fmtVES(v3)]
     ].filter(Boolean)};
 
+    // Route 4: FaceBank -> Wally -> buy USDT -> sell USDT
+    var wPct=num($("w_pct").value)/100, wTax=num($("w_tax").value)/100, wUsdt=num($("w_usdt").value)||1;
+    var wFrac = wPct*(1+wTax);                       // 3.75% + 7% tax on the fee ≈ 4.01%
+    var wallyUsd = afterFb * (1 - wFrac);
+    var usdt4 = Math.max(0, wallyUsd / wUsdt);
+    var v4 = usdt4 * p2p * (1 - taker);
+    var r4 = { ves:v4, steps:[
+      ["PayPal amount", "$"+A.toFixed(2)],
+      ["→ FaceBank", "$"+afterFb.toFixed(2)],
+      ["→ Wally (−"+(wFrac*100).toFixed(2)+"%)", "$"+wallyUsd.toFixed(2)],
+      ["buy USDT @ "+fmtRate(wUsdt), usdt4.toFixed(2)+" USDT"],
+      ["× P2P rate", fmtRate(p2p)+" VES"],
+      spreadLine(usdt4),
+      ["VES received", fmtVES(v4)]
+    ].filter(Boolean)};
+
+    // Route 5: FaceBank -> USDT directly on P2P -> sell USDT
+    var fbUsdt=num($("fb_usdt").value)||1;
+    var usdt5 = Math.max(0, afterFb / fbUsdt);
+    var v5 = usdt5 * p2p * (1 - taker);
+    var r5 = { ves:v5, steps:[
+      ["PayPal amount", "$"+A.toFixed(2)],
+      ["→ FaceBank", "$"+afterFb.toFixed(2)],
+      ["buy USDT @ "+fmtRate(fbUsdt), usdt5.toFixed(2)+" USDT"],
+      ["× P2P rate", fmtRate(p2p)+" VES"],
+      spreadLine(usdt5),
+      ["VES received", fmtVES(v5)]
+    ].filter(Boolean)};
+
     return [
-      {key:"r1", title:"Saldoar direct", tag:"1 step · PayPal→Pago Móvil", data:r1, A:A},
-      {key:"r2", title:"UglyCash → Binance", tag:"PayPal→UglyCash→Binance P2P", data:r2, A:A},
-      {key:"r3", title:"FaceBank → Zinli", tag:"PayPal→FaceBank→Zinli→P2P", data:r3, A:A}
+      {key:"r1", title:"Saldoar direct",       tag:"Saldoar · PayPal→Pago Móvil",      data:r1, A:A},
+      {key:"r2", title:"UglyCash → Binance",   tag:"UglyCash · PayPal→Binance P2P",    data:r2, A:A},
+      {key:"r3", title:"FaceBank → Zinli",     tag:"Zinli · FaceBank→Zinli→P2P",       data:r3, A:A},
+      {key:"r4", title:"FaceBank → Wally",     tag:"Wally · FaceBank→Wally→P2P",       data:r4, A:A},
+      {key:"r5", title:"FaceBank → USDT",      tag:"Direct · FaceBank→USDT→VES",       data:r5, A:A}
     ];
   }
 
-  var openState = {};
   function render(){
     var routes = routesFor(num($("amount").value));
     var best = -Infinity;
-    routes.forEach(function(r){ if(isFinite(r.data.ves) && r.data.ves>best) best=r.data.ves; });
+    routes.forEach(function(r){ if(active[r.key] && isFinite(r.data.ves) && r.data.ves>best) best=r.data.ves; });
 
     var html = routes.map(function(r){
+      var on = !!active[r.key];
       var ves = r.data.ves;
       var eff = r.A>0 ? ves/r.A : 0;
-      var isWin = isFinite(ves) && ves===best && best>0;
+      var isWin = on && isFinite(ves) && ves===best && best>0;
+      var badge = !on ? '<span class="badge">Paused</span>'
+                : isWin ? '<span class="badge best">Best</span>'
+                : '<span class="badge">'+r.tag.split("·")[0].trim()+'</span>';
       var deltaHtml = "";
-      if(!isWin && best>0 && isFinite(ves)){
-        var diff = best - ves;                       // positive VES you give up
+      if(on && !isWin && best>0 && isFinite(ves)){
+        var diff = best - ves;
         var pct = (diff/best*100);
-        var p2pv = num($("p2p").value);
-        var slip = num($("p_taker").value)/100;
-        var binEff = p2pv*(1-slip);                  // Binance realized rate
-        var usdDiff = binEff>0 ? diff/binEff : 0;    // VES gap converted to USD
+        var binEff = num($("p2p").value)*(1-num($("p_taker").value)/100);
+        var usdDiff = binEff>0 ? diff/binEff : 0;
         deltaHtml = '<div class="delta neg">−'+fmtVES(diff)+'  ·  −$'+usdDiff.toFixed(2)+' vs best  ('+pct.toFixed(1)+'%)</div>';
       }
       var stepsHtml = r.data.steps.map(function(s){
@@ -304,13 +374,16 @@
       }).join("");
       var isOpen = !!openState[r.key];
       return ''+
-      '<div class="route '+(isWin?"win":"")+'">'+
-        '<div class="name">'+r.title+' '+(isWin?'<span class="badge best">Best</span>':'<span class="badge">'+r.tag.split("·")[0].trim()+'</span>')+'</div>'+
+      '<div class="route '+(isWin?"win ":"")+(on?"":"off")+'">'+
+        '<div class="name-wrap">'+
+          '<div class="name"><span class="t">'+r.title+'</span> '+badge+'</div>'+
+          '<label class="sw"><input type="checkbox" data-act="'+r.key+'"'+(on?' checked':'')+'><span class="tr"></span></label>'+
+        '</div>'+
         '<div class="ves">'+fmtVES(ves)+'</div>'+
         '<div class="eff">'+ (eff? fmtRate(eff)+' VES per $1' : '—') +'</div>'+
         deltaHtml+
         '<button class="toggle" data-k="'+r.key+'">'+(isOpen?'Hide steps ▴':'Show steps ▾')+'</button>'+
-        '<div class="steps '+(isOpen?'open':'')+'" id="steps_'+r.key+'">'+stepsHtml+'</div>'+
+        '<div class="steps '+(isOpen?'open':'')+'">'+stepsHtml+'</div>'+
       '</div>';
     }).join("");
     $("results").innerHTML = html;
@@ -320,6 +393,11 @@
         var k=b.getAttribute("data-k"); openState[k]=!openState[k]; render();
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-act]'), function(cb){
+      cb.addEventListener("change", function(){
+        active[cb.getAttribute("data-act")] = cb.checked; render();
+      });
+    });
     renderPricing();
     save();
   }
@@ -327,13 +405,12 @@
   function renderPricing(){
     var B = num($("batch").value);
     var f = num($("pp_fee").value)/100;
-    var p2pv = num($("p2p").value), slip = num($("p_taker").value)/100;
-    var marketRate = p2pv*(1-slip);                 // realized VES/USDT — the true FX yardstick
-    var rs = routesFor(B);
+    var marketRate = num($("p2p").value)*(1-num($("p_taker").value)/100);
+    var rs = routesFor(B).filter(function(r){ return active[r.key]; });
+    if(!rs.length){ $("pricingOut").innerHTML = '<div class="cur">Turn on at least one route to see the recommended markup.</div>'; return; }
     var items = rs.map(function(r){
-      // value kept (in USD) per $1 that reaches PayPal, at this batch size
       var eff = (marketRate>0 && B>0 && isFinite(r.data.ves)) ? r.data.ves/(marketRate*B) : 0;
-      var markup = eff>0 ? (1/((1-f)*eff)-1) : Infinity;   // charge this over product value to break even
+      var markup = eff>0 ? (1/((1-f)*eff)-1) : Infinity;
       return {title:r.title, key:r.key, markup:markup};
     });
     var best = items.slice().sort(function(a,b){return a.markup-b.markup;})[0];
@@ -342,12 +419,11 @@
       var isB = best && it.key===best.key;
       return '<div class="prow"><span class="rt">'+it.title+(isB?' <span class="sub">· cheapest</span>':'')+'</span><span class="mk">'+pct(it.markup)+'</span></div>';
     }).join("");
-    var head = best ? pct(best.markup) : "—";
     $("pricingOut").innerHTML =
-      '<div class="reco"><span class="pct">'+head+'</span>'+
+      '<div class="reco"><span class="pct">'+(best?pct(best.markup):"—")+'</span>'+
         '<span class="lbl">markup to break even cashing out via <b>'+(best?best.title:"—")+'</b> in $'+Math.round(B).toLocaleString("en-US")+' batches</span></div>'+
       '<div class="plist">'+rows+'</div>'+
-      '<div class="cur">You build in 5.40% today. Larger batches lower the needed markup (the flat fees spread thinner); Saldoar-direct needs the most because its rate sits below the P2P market. The P2P spread isn\'t counted here — it\'s just the going rate, not a recoverable cost.</div>';
+      '<div class="cur">Larger batches lower the needed markup (flat fees spread thinner). Routes with a percentage cost (Zinli, Wally, the USDT premium) don\'t improve with size. The P2P spread isn\'t counted here — it\'s just the going rate, not a recoverable cost.</div>';
   }
 
   // ---- live fetch ----
@@ -387,24 +463,45 @@
       spin.style.display="none"; lbl.textContent="↻ Update live rates";
       var okA=res[0].status==="fulfilled", okB=res[1].status==="fulfilled";
       render();
-      if(okA&&okB){
-        setStatus("Updated "+when.toLocaleTimeString()+" ✓");
-      }else if(!okA&&!okB){
-        setStatus("Couldn't reach either rate source. Check connection, or type rates manually. (If opened as a local file, some phones block this — see notes.)", true);
-      }else{
-        setStatus("Got "+(okA?"Binance":"Saldoar")+" only; the other failed — type it manually.", true);
-      }
+      if(okA&&okB){ setStatus("Updated "+when.toLocaleTimeString()+" ✓"); }
+      else if(!okA&&!okB){ setStatus("Couldn't reach either rate source. Check connection, or type rates manually.", true); }
+      else{ setStatus("Got "+(okA?"Binance":"Saldoar")+" only; the other failed — type it manually.", true); }
     });
+  }
+
+  // ---- FaceBank live rate (via Cloudflare Worker proxy, amount-specific) ----
+  function fetchFaceBank(){
+    var base = ($("fb_worker").value||"").trim();
+    if(!base){ $("fbHint").textContent = "Set a proxy URL to pull the live FaceBank rate for your amount."; return; }
+    var amt = num($("amount").value);
+    var pay = ($("fb_pay").value||"FaceBank").trim();
+    var u = base + (base.indexOf("?")>=0?"&":"?") + "amount="+encodeURIComponent(amt)
+            + "&payType="+encodeURIComponent(pay) + "&fiat=USD&asset=USDT&tradeType=BUY";
+    $("fbHint").textContent = "Fetching "+pay+" rate…";
+    fetch(u,{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){
+      if(j && j.ok && j.best){
+        $("fb_usdt").value = j.best;
+        $("fbHint").textContent = "Live: "+fmtRate(j.best)+" USD/USDT @ $"+Math.round(amt)+" ("+j.count+" "+pay+" offers) · "+new Date().toLocaleTimeString();
+        render();
+      } else {
+        $("fbHint").textContent = "No "+pay+" offers for $"+Math.round(amt)+" right now — using the manual value above.";
+      }
+    }).catch(function(){ $("fbHint").textContent = "Proxy unreachable — using the manual value above."; });
   }
 
   // ---- wire up ----
   ["amount","p2p","saldo","offers","batch","pp_fee"].concat(SETTING_IDS).forEach(function(id){
     $(id).addEventListener("input", render);
   });
-  $("update").addEventListener("click", update);
-  $("openDeals").addEventListener("click", function(){
-    window.open("https://saldoar.com/my/dashboard/deals","_blank");
+  ["fb_worker","fb_pay"].forEach(function(id){ $(id).addEventListener("input", save); });
+  var fbTimer;
+  $("amount").addEventListener("input", function(){
+    clearTimeout(fbTimer);
+    if(($("fb_worker").value||"").trim()) fbTimer = setTimeout(fetchFaceBank, 700);
   });
+  $("update").addEventListener("click", function(){ fetchFaceBank(); });
+  $("update").addEventListener("click", update);
+  $("openDeals").addEventListener("click", function(){ window.open("https://saldoar.com/my/dashboard/deals","_blank"); });
   $("reset").addEventListener("click", function(){
     SETTING_IDS.forEach(function(id){ $(id).value = DEFAULTS[id]; });
     render();
@@ -412,6 +509,7 @@
 
   load();
   render();
+  if(($("fb_worker").value||"").trim()) fetchFaceBank();
 })();
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
